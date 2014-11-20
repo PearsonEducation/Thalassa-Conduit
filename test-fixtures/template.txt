@@ -1,0 +1,19 @@
+global
+  maxconn 256
+
+  defaults
+    timeout connect 5000ms
+
+{{range .Frontends}}
+  frontend {{.Name}}{{if .Bind}}
+    bind {{.Bind}}{{end}}{{if .Mode}}
+    mode {{.Mode}}{{end}}{{if .DefaultBackend}}
+    default_backend {{.DefaultBackend}}{{end}}{{if .Option}}
+    option {{.Option}}{{end}}
+{{end}}
+{{range .Backends}}
+  backend {{.Name}}{{if .Mode}}
+    mode {{.Mode}}{{end}}{{if .Balance}}
+    balance {{.Balance}}{{end}}{{range .Members}}
+    server {{.Name}} {{.Host}}:{{.Port}} check inter 2000{{end}}
+{{end}}

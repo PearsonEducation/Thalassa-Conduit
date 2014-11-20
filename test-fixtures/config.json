@@ -1,0 +1,7 @@
+{
+	"port": "3000",
+	"haconfig": "test-fixtures/haproxy.cfg",
+	"hatemplate": "text-fixtures/template.txt",
+	"hareload": "reload haproxy",
+	"db-path": "/var/db/conduit"
+}
