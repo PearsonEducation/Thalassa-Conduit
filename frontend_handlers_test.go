@@ -6,8 +6,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/go-martini/martini"
 )
 
 type frontendHandlersTestCase struct {
@@ -41,9 +39,9 @@ func (c frontendHandlersTestCase) execute() {
 type frontendHandlersMocks struct {
 	Enc       Encoder
 	Svc       *DataSvcMock
-	Params    martini.Params
+	Params    Params
 	Request   *http.Request
-	ResWriter http.ResponseWriter
+	ResWriter *httptest.ResponseRecorder
 }
 
 var fData = FrontendTestData{}
@@ -63,9 +61,9 @@ func Test_GetFrontends(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// retrieve and validate data
-		actBody := GetFrontends(m.Enc, m.Svc)
+		GetFrontends(m.ResWriter, m.Enc, m.Svc)
 		expBody := m.Enc.EncodeMulti(f1, f2)
-		assert.Equal(t, actBody, expBody, "GetFrontends() returned an unexpected body")
+		assert.Equal(t, m.ResWriter.Body.String(), expBody, "GetFrontends() returned an unexpected body")
 	}
 
 	frontendHandlersTestCase{
@@ -82,7 +80,7 @@ func Test_GetFrontends_SvcError(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// execute function to test, check for panic
-		f := func() { GetFrontends(m.Enc, m.Svc) }
+		f := func() { GetFrontends(m.ResWriter, m.Enc, m.Svc) }
 		assert.Panic(t, f, "GetFrontends() failed to panic when expected")
 	}
 
@@ -107,9 +105,9 @@ func Test_GetFrontend(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// retrieve and validate data
-		actCode, actBody := GetFrontend(m.Enc, m.Svc, m.Params)
-		assert.Equal(t, actCode, http.StatusOK, "GetFrontend() returned unexpected status code")
-		assert.Equal(t, actBody, m.Enc.Encode(f), "GetFrontend() returned unexpected body")
+		GetFrontend(m.ResWriter, m.Enc, m.Svc, m.Params)
+		assert.Equal(t, m.ResWriter.Code, http.StatusOK, "GetFrontend() returned unexpected status code")
+		assert.Equal(t, m.ResWriter.Body.String(), m.Enc.Encode(f), "GetFrontend() returned unexpected body")
 	}
 
 	frontendHandlersTestCase{
@@ -126,11 +124,11 @@ func Test_GetFrontend_DoesNotExist(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// retrieve and validate data
-		actCode, actBody := GetFrontend(m.Enc, m.Svc, m.Params)
+		GetFrontend(m.ResWriter, m.Enc, m.Svc, m.Params)
 		expCode := http.StatusNotFound
 		expBody := fmt.Sprintf(`"code":%d`, expCode)
-		assert.Equal(t, actCode, expCode, "GetFrontend() returned unexpected status code")
-		assert.StringContains(t, actBody, expBody, "GetFrontend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, expCode, "GetFrontend() returned unexpected status code")
+		assert.StringContains(t, m.ResWriter.Body.String(), expBody, "GetFrontend() returned unexpected body")
 	}
 
 	frontendHandlersTestCase{
@@ -148,7 +146,7 @@ func Test_GetFrontend_SvcError(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// execute function to test, check for panic
-		f := func() { GetFrontend(m.Enc, m.Svc, m.Params) }
+		f := func() { GetFrontend(m.ResWriter, m.Enc, m.Svc, m.Params) }
 		assert.Panic(t, f, "GetFrontends() failed to panic when expected")
 	}
 
@@ -173,12 +171,12 @@ func Test_PutFrontend_Create(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := PutFrontend(m.Request, m.Enc, m.Svc, m.Params)
+		PutFrontend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
 
 		// assert return values
 		expBody := m.Enc.Encode(f)
-		assert.Equal(t, actCode, http.StatusCreated, "PutFrontend() returned unexpected status code")
-		assert.Equal(t, actBody, expBody, "PutFrontend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, http.StatusCreated, "PutFrontend() returned unexpected status code")
+		assert.Equal(t, m.ResWriter.Body.String(), expBody, "PutFrontend() returned unexpected body")
 	}
 
 	frontendHandlersTestCase{
@@ -201,11 +199,11 @@ func Test_PutFrontend_Update(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := PutFrontend(m.Request, m.Enc, m.Svc, m.Params)
+		PutFrontend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
 
 		// assert return values
-		assert.Equal(t, actCode, http.StatusOK, "PutFrontend() returned unexpected status code")
-		assert.Equal(t, actBody, m.Enc.Encode(f2), "PutFrontend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, http.StatusOK, "PutFrontend() returned unexpected status code")
+		assert.Equal(t, m.ResWriter.Body.String(), m.Enc.Encode(f2), "PutFrontend() returned unexpected body")
 	}
 
 	frontendHandlersTestCase{
@@ -223,13 +221,13 @@ func Test_PutFrontend_WithInvalidJSON(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := PutFrontend(m.Request, m.Enc, m.Svc, m.Params)
+		PutFrontend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
 
 		// assert return values
 		expCode := http.StatusBadRequest
 		expBody := fmt.Sprintf(`"code":%d`, expCode)
-		assert.Equal(t, actCode, expCode, "PutFrontend() returned unexpected status code")
-		assert.StringContains(t, actBody, expBody, "PutFrontend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, expCode, "PutFrontend() returned unexpected status code")
+		assert.StringContains(t, m.ResWriter.Body.String(), expBody, "PutFrontend() returned unexpected body")
 	}
 
 	frontendHandlersTestCase{
@@ -250,13 +248,13 @@ func Test_PutFrontend_SvcBadDataError(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := PutFrontend(m.Request, m.Enc, m.Svc, m.Params)
+		PutFrontend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
 
 		// assert return values
 		expCode := http.StatusBadRequest
 		expBody := fmt.Sprintf(`"code":%d`, expCode)
-		assert.Equal(t, actCode, expCode, "PutFrontend() returned unexpected status code")
-		assert.StringContains(t, actBody, expBody, "PutFrontend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, expCode, "PutFrontend() returned unexpected status code")
+		assert.StringContains(t, m.ResWriter.Body.String(), expBody, "PutFrontend() returned unexpected body")
 	}
 
 	frontendHandlersTestCase{
@@ -277,7 +275,7 @@ func Test_PutFrontend_SvcDBError(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// execute function to test, check for panic
-		f := func() { PutFrontend(m.Request, m.Enc, m.Svc, m.Params) }
+		f := func() { PutFrontend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params) }
 		assert.Panic(t, f, "PutFrontend() failed to panic when expected")
 	}
 
@@ -299,7 +297,7 @@ func Test_PutFrontend_SvcSyncError(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// execute function to test, check for panic
-		f := func() { PutFrontend(m.Request, m.Enc, m.Svc, m.Params) }
+		f := func() { PutFrontend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params) }
 		assert.Panic(t, f, "PutFrontend() failed to panic when expected")
 	}
 
@@ -321,7 +319,7 @@ func Test_PutFrontend_SvcOutOfSyncError(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// execute function to test, check for panic
-		f := func() { PutFrontend(m.Request, m.Enc, m.Svc, m.Params) }
+		f := func() { PutFrontend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params) }
 		assert.Panic(t, f, "PutFrontend() failed to panic when expected")
 	}
 
@@ -349,11 +347,11 @@ func Test_PostFrontend(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := PostFrontend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
+		PostFrontend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
 
 		// assert return values
-		assert.Equal(t, actCode, http.StatusOK, "PostFrontend() returned unexpected status code")
-		assert.Equal(t, actBody, m.Enc.Encode(f2), "PostFrontend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, http.StatusOK, "PostFrontend() returned unexpected status code")
+		assert.Equal(t, m.ResWriter.Body.String(), m.Enc.Encode(f2), "PostFrontend() returned unexpected body")
 	}
 
 	frontendHandlersTestCase{
@@ -374,13 +372,13 @@ func Test_PostFrontend_WithInvalidJSON(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := PostFrontend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
+		PostFrontend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
 
 		// assert return values
 		expCode := http.StatusBadRequest
 		expBody := fmt.Sprintf(`"code":%d`, expCode)
-		assert.Equal(t, actCode, expCode, "PostFrontend() returned unexpected status code")
-		assert.StringContains(t, actBody, expBody, "PostFrontend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, expCode, "PostFrontend() returned unexpected status code")
+		assert.StringContains(t, m.ResWriter.Body.String(), expBody, "PostFrontend() returned unexpected body")
 	}
 
 	frontendHandlersTestCase{
@@ -400,13 +398,13 @@ func Test_PostFrontend_SvcNotFoundError(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := PostFrontend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
+		PostFrontend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
 
 		// assert return values
 		expCode := http.StatusNotFound
 		expBody := fmt.Sprintf(`"code":%d`, expCode)
-		assert.Equal(t, actCode, expCode, "PostFrontend() returned unexpected status code")
-		assert.StringContains(t, actBody, expBody, "PostFrontend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, expCode, "PostFrontend() returned unexpected status code")
+		assert.StringContains(t, m.ResWriter.Body.String(), expBody, "PostFrontend() returned unexpected body")
 	}
 
 	frontendHandlersTestCase{
@@ -428,13 +426,13 @@ func Test_PostFrontend_SvcBadDataError(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := PostFrontend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
+		PostFrontend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
 
 		// assert return values
 		expCode := http.StatusBadRequest
 		expBody := fmt.Sprintf(`"code":%d`, expCode)
-		assert.Equal(t, actCode, expCode, "PostFrontend() returned unexpected status code")
-		assert.StringContains(t, actBody, expBody, "PostFrontend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, expCode, "PostFrontend() returned unexpected status code")
+		assert.StringContains(t, m.ResWriter.Body.String(), expBody, "PostFrontend() returned unexpected body")
 	}
 
 	frontendHandlersTestCase{
@@ -527,12 +525,12 @@ func Test_DeleteFrontend(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := DeleteFrontend(m.Enc, m.Svc, m.Params)
+		DeleteFrontend(m.ResWriter, m.Enc, m.Svc, m.Params)
 
 		// assert return values
 		expCode := http.StatusNoContent
-		assert.Equal(t, actCode, expCode, "DeleteFrontend() returned unexpected status code")
-		assert.Empty(t, actBody, "DeleteFrontend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, expCode, "DeleteFrontend() returned unexpected status code")
+		assert.Empty(t, m.ResWriter.Body.String(), "DeleteFrontend() returned unexpected body")
 	}
 
 	frontendHandlersTestCase{
@@ -550,13 +548,13 @@ func Test_DeleteFrontend_SvcNotFoundError(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := DeleteFrontend(m.Enc, m.Svc, m.Params)
+		DeleteFrontend(m.ResWriter, m.Enc, m.Svc, m.Params)
 
 		// assert return values
 		expCode := http.StatusNotFound
 		expBody := fmt.Sprintf(`"code":%d`, expCode)
-		assert.Equal(t, actCode, expCode, "DeleteFrontend() returned unexpected status code")
-		assert.StringContains(t, actBody, expBody, "DeleteFrontend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, expCode, "DeleteFrontend() returned unexpected status code")
+		assert.StringContains(t, m.ResWriter.Body.String(), expBody, "DeleteFrontend() returned unexpected body")
 	}
 
 	frontendHandlersTestCase{
@@ -574,7 +572,7 @@ func Test_DeleteFrontend_SvcDBError(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// execute function to test, check for panic
-		f := func() { DeleteFrontend(m.Enc, m.Svc, m.Params) }
+		f := func() { DeleteFrontend(m.ResWriter, m.Enc, m.Svc, m.Params) }
 		assert.Panic(t, f, "DeleteFrontend() failed to panic when expected")
 	}
 
@@ -593,7 +591,7 @@ func Test_DeleteFrontend_SvcSyncError(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// execute function to test, check for panic
-		f := func() { DeleteFrontend(m.Enc, m.Svc, m.Params) }
+		f := func() { DeleteFrontend(m.ResWriter, m.Enc, m.Svc, m.Params) }
 		assert.Panic(t, f, "DeleteFrontend() failed to panic when expected")
 	}
 
@@ -612,7 +610,7 @@ func Test_DeleteFrontend_SvcOutOfSyncError(t *testing.T) {
 
 	testAction := func(m *frontendHandlersMocks) {
 		// execute function to test, check for panic
-		f := func() { DeleteFrontend(m.Enc, m.Svc, m.Params) }
+		f := func() { DeleteFrontend(m.ResWriter, m.Enc, m.Svc, m.Params) }
 		assert.Panic(t, f, "DeleteFrontend() failed to panic when expected")
 	}
 
