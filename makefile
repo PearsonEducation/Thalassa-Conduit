@@ -29,5 +29,5 @@ cover-report: cover
 	$(GO) tool cover -html=./coverage.out
 
 dep-install:
-	$(GOBIN)/$(GO) get
+	$(GO) get
 
