@@ -3,7 +3,7 @@ GOFILE ?= conduit.go
 OUTFILE ?= conduit
 
 GOBIN := $(GOPATH)/bin
-GOPATH := $(CURDIR)/_vendor:$(GOPATH)
+GOPATH := $(CURDIR)/_vendor
 
 build: clean $(GOFILE)
 	$(GO) build -v -o $(OUTFILE) *.go
