@@ -4,37 +4,37 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-
-	"github.com/go-martini/martini"
 )
 
 // GetBackends returns a list of HAProxy backends.
-func GetBackends(enc Encoder, svc DataSvc) string {
+func GetBackends(w http.ResponseWriter, enc Encoder, svc DataSvc) {
 	b, err := svc.GetAllBackends()
 	if err != nil {
 		panic(err)
 	}
-	return enc.EncodeMulti(b.ToInterfaces()...)
+	util{}.writeResponse(w, http.StatusOK, enc.EncodeMulti(b.ToInterfaces()...))
 }
 
 // GetBackend returns the requested HAProxy backend.
-func GetBackend(enc Encoder, svc DataSvc, params martini.Params) (int, string) {
+func GetBackend(w http.ResponseWriter, enc Encoder, svc DataSvc, params Params) {
 	data, err := svc.GetBackend(params["name"])
 	if err != nil {
 		panic(err)
 	}
 	if data == nil {
-		return util{}.notFound(enc, fmt.Sprintf("the backend with name %s does not exist", params["name"]))
+		util{}.notFound(w, enc, fmt.Sprintf("the backend with name %s does not exist", params["name"]))
+		return
 	}
-	return http.StatusOK, enc.Encode(data)
+	util{}.writeResponse(w, http.StatusOK, enc.Encode(data))
 }
 
 // PutBackend creates or updates an HAProxy backend.
-func PutBackend(r *http.Request, enc Encoder, svc DataSvc, params martini.Params) (int, string) {
+func PutBackend(w http.ResponseWriter, r *http.Request, enc Encoder, svc DataSvc, params Params) {
 	b := &Backend{}
 	e := loadBackendFromRequest(r, enc, b)
 	if e != nil {
-		return util{}.badRequest(enc, "the backend data is invalid")
+		util{}.badRequest(w, enc, "the backend data is invalid")
+		return
 	}
 
 	// always use the name identified in the resource
@@ -53,69 +53,75 @@ func PutBackend(r *http.Request, enc Encoder, svc DataSvc, params martini.Params
 	if err != nil {
 		switch err.Type {
 		case ErrBadData:
-			return util{}.badRequest(enc, err.Error())
+			util{}.badRequest(w, enc, err.Error())
+			return
 		default:
 			panic(err)
 		}
 	}
 
-	return status, enc.Encode(b)
+	util{}.writeResponse(w, status, enc.Encode(b))
 }
 
 // PostBackend performs a partial update of an existing HAProxy backend.
-func PostBackend(w http.ResponseWriter, r *http.Request, enc Encoder, svc DataSvc, params martini.Params) (int, string) {
+func PostBackend(w http.ResponseWriter, r *http.Request, enc Encoder, svc DataSvc, params Params) {
 	name := params["name"]
 	b, err := svc.GetBackend(name)
 	if err != nil {
 		panic(err)
 	}
 	if b == nil {
-		return util{}.notFound(enc, fmt.Sprintf("the backend with name %s does not exist", name))
+		util{}.notFound(w, enc, fmt.Sprintf("the backend with name %s does not exist", name))
+		return
 	}
 
 	e := loadBackendFromRequest(r, enc, b)
 	if e != nil {
-		return util{}.badRequest(enc, "the backend data is invalid")
+		util{}.badRequest(w, enc, "the backend data is invalid")
+		return
 	}
 
 	err = svc.SaveBackend(b)
 	if err != nil {
 		switch err.Type {
 		case ErrBadData:
-			return util{}.badRequest(enc, err.Error())
+			util{}.badRequest(w, enc, err.Error())
+			return
 		default:
 			panic(err)
 		}
 	}
 
-	return http.StatusOK, enc.Encode(b)
+	util{}.writeResponse(w, http.StatusOK, enc.Encode(b))
 }
 
 // DeleteBackend removes an HAProxy backend.
-func DeleteBackend(enc Encoder, svc DataSvc, params martini.Params) (int, string) {
+func DeleteBackend(w http.ResponseWriter, enc Encoder, svc DataSvc, params Params) {
 	key := params["name"]
 	err := svc.DeleteBackend(key)
 	if err != nil {
 		switch err.Type {
 		case ErrNotFound:
-			return util{}.notFound(enc, fmt.Sprintf("the backend with name %s does not exist", key))
+			util{}.notFound(w, enc, fmt.Sprintf("the backend with name %s does not exist", key))
+			return
 		default:
 			panic(err)
 		}
 	}
-	return http.StatusNoContent, ""
+	util{}.writeResponse(w, http.StatusNoContent, "")
 }
 
 // GetBackendMembers returns a list of all members in a backend.
-func GetBackendMembers(enc Encoder, svc DataSvc, params martini.Params) (int, string) {
+func GetBackendMembers(w http.ResponseWriter, enc Encoder, svc DataSvc, params Params) {
 	b, err := svc.GetBackend(params["name"])
 	if err != nil {
 		panic(err)
 	}
 	if b == nil {
-		return util{}.notFound(enc, fmt.Sprintf("the backend with name %s does not exist", params["name"]))
+		util{}.notFound(w, enc, fmt.Sprintf("the backend with name %s does not exist", params["name"]))
+		return
 	}
-	return http.StatusOK, enc.EncodeMulti(b.Members.ToInterfaces()...)
+	util{}.writeResponse(w, http.StatusOK, enc.EncodeMulti(b.Members.ToInterfaces()...))
 }
 
 // parse request body into a Backend instance

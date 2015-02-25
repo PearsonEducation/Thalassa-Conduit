@@ -4,37 +4,37 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-
-	"github.com/go-martini/martini"
 )
 
 // GetFrontends returns a list of HAProxy frontends.
-func GetFrontends(enc Encoder, svc DataSvc) string {
+func GetFrontends(w http.ResponseWriter, enc Encoder, svc DataSvc) {
 	f, err := svc.GetAllFrontends()
 	if err != nil {
 		panic(err)
 	}
-	return enc.EncodeMulti(f.ToInterfaces()...)
+	util{}.writeResponse(w, http.StatusOK, enc.EncodeMulti(f.ToInterfaces()...))
 }
 
 // GetFrontend returns the requested HAProxy frontend.
-func GetFrontend(enc Encoder, svc DataSvc, params martini.Params) (int, string) {
+func GetFrontend(w http.ResponseWriter, enc Encoder, svc DataSvc, params Params) {
 	data, err := svc.GetFrontend(params["name"])
 	if err != nil {
 		panic(err)
 	}
 	if data == nil {
-		return util{}.notFound(enc, fmt.Sprintf("the frontend with name %s does not exist", params["name"]))
+		util{}.notFound(w, enc, fmt.Sprintf("the frontend with name %s does not exist", params["name"]))
+		return
 	}
-	return http.StatusOK, enc.Encode(data)
+	util{}.writeResponse(w, http.StatusOK, enc.Encode(data))
 }
 
 // PutFrontend creates or updates an HAProxy frontend.
-func PutFrontend(r *http.Request, enc Encoder, svc DataSvc, params martini.Params) (int, string) {
+func PutFrontend(w http.ResponseWriter, r *http.Request, enc Encoder, svc DataSvc, params Params) {
 	f := &Frontend{}
 	e := loadFrontendFromRequest(r, enc, f)
 	if e != nil {
-		return util{}.badRequest(enc, "the frontend data is invalid")
+		util{}.badRequest(w, enc, "the frontend data is invalid")
+		return
 	}
 
 	// always use the name identified in the resource URL
@@ -53,57 +53,62 @@ func PutFrontend(r *http.Request, enc Encoder, svc DataSvc, params martini.Param
 	if err != nil {
 		switch err.Type {
 		case ErrBadData:
-			return util{}.badRequest(enc, err.Error())
+			util{}.badRequest(w, enc, err.Error())
+			return
 		default:
 			panic(err)
 		}
 	}
 
-	return status, enc.Encode(f)
+	util{}.writeResponse(w, status, enc.Encode(f))
 }
 
 // PostFrontend performs a partial update of an existing HAProxy frontend.
-func PostFrontend(w http.ResponseWriter, r *http.Request, enc Encoder, svc DataSvc, params martini.Params) (int, string) {
+func PostFrontend(w http.ResponseWriter, r *http.Request, enc Encoder, svc DataSvc, params Params) {
 	name := params["name"]
 	f, err := svc.GetFrontend(name)
 	if err != nil {
 		panic(err)
 	}
 	if f == nil {
-		return util{}.notFound(enc, fmt.Sprintf("the frontend with name %s does not exist", name))
+		util{}.notFound(w, enc, fmt.Sprintf("the frontend with name %s does not exist", name))
+		return
 	}
 
 	e := loadFrontendFromRequest(r, enc, f)
 	if e != nil {
-		return util{}.badRequest(enc, "the frontend data is invalid")
+		util{}.badRequest(w, enc, "the frontend data is invalid")
+		return
 	}
 
 	err = svc.SaveFrontend(f)
 	if err != nil {
 		switch err.Type {
 		case ErrBadData:
-			return util{}.badRequest(enc, err.Error())
+			util{}.badRequest(w, enc, err.Error())
+			return
 		default:
 			panic(err)
 		}
 	}
 
-	return http.StatusOK, enc.Encode(f)
+	util{}.writeResponse(w, http.StatusOK, enc.Encode(f))
 }
 
 // DeleteFrontend removes an HAProxy frontend.
-func DeleteFrontend(enc Encoder, svc DataSvc, params martini.Params) (int, string) {
+func DeleteFrontend(w http.ResponseWriter, enc Encoder, svc DataSvc, params Params) {
 	key := params["name"]
 	err := svc.DeleteFrontend(key)
 	if err != nil {
 		switch err.Type {
 		case ErrNotFound:
-			return util{}.notFound(enc, fmt.Sprintf("the frontend with name %s does not exist", key))
+			util{}.notFound(w, enc, fmt.Sprintf("the frontend with name %s does not exist", key))
+			return
 		default:
 			panic(err)
 		}
 	}
-	return http.StatusNoContent, ""
+	util{}.writeResponse(w, http.StatusNoContent, "")
 }
 
 // parse request body into a Frontend instance

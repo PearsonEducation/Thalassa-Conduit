@@ -6,8 +6,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/go-martini/martini"
 )
 
 type backendHandlersTestCase struct {
@@ -41,9 +39,9 @@ func (c backendHandlersTestCase) execute() {
 type backendHandlersMocks struct {
 	Enc       Encoder
 	Svc       *DataSvcMock
-	Params    martini.Params
+	Params    Params
 	Request   *http.Request
-	ResWriter http.ResponseWriter
+	ResWriter *httptest.ResponseRecorder
 }
 
 var bData = BackendTestData{}
@@ -63,9 +61,9 @@ func Test_GetBackends(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// retrieve and validate data
-		actBody := GetBackends(m.Enc, m.Svc)
+		GetBackends(m.ResWriter, m.Enc, m.Svc)
 		expBody := m.Enc.EncodeMulti(b1, b2)
-		assert.Equal(t, actBody, expBody, "GetBackends() returned an unexpected body")
+		assert.Equal(t, m.ResWriter.Body.String(), expBody, "GetBackends() returned an unexpected body")
 	}
 
 	backendHandlersTestCase{
@@ -82,7 +80,7 @@ func Test_GetBackends_SvcError(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test, check for panic
-		b := func() { GetBackends(m.Enc, m.Svc) }
+		b := func() { GetBackends(m.ResWriter, m.Enc, m.Svc) }
 		assert.Panic(t, b, "GetBackends() failed to panic when expected")
 	}
 
@@ -107,9 +105,9 @@ func Test_GetBackend(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// retrieve and validate data
-		actCode, actBody := GetBackend(m.Enc, m.Svc, m.Params)
-		assert.Equal(t, actCode, http.StatusOK, "GetBackend() returned unexpected status code")
-		assert.Equal(t, actBody, m.Enc.Encode(b), "GetBackend() returned unexpected body")
+		GetBackend(m.ResWriter, m.Enc, m.Svc, m.Params)
+		assert.Equal(t, m.ResWriter.Code, http.StatusOK, "GetBackend() returned unexpected status code")
+		assert.Equal(t, m.ResWriter.Body.String(), m.Enc.Encode(b), "GetBackend() returned unexpected body")
 	}
 
 	backendHandlersTestCase{
@@ -126,11 +124,11 @@ func Test_GetBackend_DoesNotExist(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// retrieve and validate data
-		actCode, actBody := GetBackend(m.Enc, m.Svc, m.Params)
+		GetBackend(m.ResWriter, m.Enc, m.Svc, m.Params)
 		expCode := http.StatusNotFound
 		expBody := fmt.Sprintf(`"code":%d`, expCode)
-		assert.Equal(t, actCode, expCode, "GetBackend() returned unexpected status code")
-		assert.StringContains(t, actBody, expBody, "GetBackend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, expCode, "GetBackend() returned unexpected status code")
+		assert.StringContains(t, m.ResWriter.Body.String(), expBody, "GetBackend() returned unexpected body")
 	}
 
 	backendHandlersTestCase{
@@ -148,7 +146,7 @@ func Test_GetBackend_SvcError(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test, check for panic
-		b := func() { GetBackend(m.Enc, m.Svc, m.Params) }
+		b := func() { GetBackend(m.ResWriter, m.Enc, m.Svc, m.Params) }
 		assert.Panic(t, b, "GetBackends() failed to panic when expected")
 	}
 
@@ -173,12 +171,12 @@ func Test_PutBackend_Create(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := PutBackend(m.Request, m.Enc, m.Svc, m.Params)
+		PutBackend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
 
 		// assert return values
 		expBody := m.Enc.Encode(b)
-		assert.Equal(t, actCode, http.StatusCreated, "PutBackend() returned unexpected status code")
-		assert.Equal(t, actBody, expBody, "PutBackend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, http.StatusCreated, "PutBackend() returned unexpected status code")
+		assert.Equal(t, m.ResWriter.Body.String(), expBody, "PutBackend() returned unexpected body")
 	}
 
 	backendHandlersTestCase{
@@ -201,11 +199,11 @@ func Test_PutBackend_Update(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := PutBackend(m.Request, m.Enc, m.Svc, m.Params)
+		PutBackend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
 
 		// assert return values
-		assert.Equal(t, actCode, http.StatusOK, "PutBackend() returned unexpected status code")
-		assert.Equal(t, actBody, m.Enc.Encode(b2), "PutBackend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, http.StatusOK, "PutBackend() returned unexpected status code")
+		assert.Equal(t, m.ResWriter.Body.String(), m.Enc.Encode(b2), "PutBackend() returned unexpected body")
 	}
 
 	backendHandlersTestCase{
@@ -223,13 +221,13 @@ func Test_PutBackend_WithInvalidJSON(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := PutBackend(m.Request, m.Enc, m.Svc, m.Params)
+		PutBackend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
 
 		// assert return values
 		expCode := http.StatusBadRequest
 		expBody := fmt.Sprintf(`"code":%d`, expCode)
-		assert.Equal(t, actCode, expCode, "PutBackend() returned unexpected status code")
-		assert.StringContains(t, actBody, expBody, "PutBackend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, expCode, "PutBackend() returned unexpected status code")
+		assert.StringContains(t, m.ResWriter.Body.String(), expBody, "PutBackend() returned unexpected body")
 	}
 
 	backendHandlersTestCase{
@@ -250,13 +248,13 @@ func Test_PutBackend_SvcBadDataError(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := PutBackend(m.Request, m.Enc, m.Svc, m.Params)
+		PutBackend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
 
 		// assert return values
 		expCode := http.StatusBadRequest
 		expBody := fmt.Sprintf(`"code":%d`, expCode)
-		assert.Equal(t, actCode, expCode, "PutBackend() returned unexpected status code")
-		assert.StringContains(t, actBody, expBody, "PutBackend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, expCode, "PutBackend() returned unexpected status code")
+		assert.StringContains(t, m.ResWriter.Body.String(), expBody, "PutBackend() returned unexpected body")
 	}
 
 	backendHandlersTestCase{
@@ -277,7 +275,7 @@ func Test_PutBackend_SvcDBError(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test, check for panic
-		b := func() { PutBackend(m.Request, m.Enc, m.Svc, m.Params) }
+		b := func() { PutBackend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params) }
 		assert.Panic(t, b, "PutBackend() failed to panic when expected")
 	}
 
@@ -299,7 +297,7 @@ func Test_PutBackend_SvcSyncError(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test, check for panic
-		b := func() { PutBackend(m.Request, m.Enc, m.Svc, m.Params) }
+		b := func() { PutBackend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params) }
 		assert.Panic(t, b, "PutBackend() failed to panic when expected")
 	}
 
@@ -321,7 +319,7 @@ func Test_PutBackend_SvcOutOfSyncError(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test, check for panic
-		b := func() { PutBackend(m.Request, m.Enc, m.Svc, m.Params) }
+		b := func() { PutBackend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params) }
 		assert.Panic(t, b, "PutBackend() failed to panic when expected")
 	}
 
@@ -349,11 +347,11 @@ func Test_PostBackend(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := PostBackend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
+		PostBackend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
 
 		// assert return values
-		assert.Equal(t, actCode, http.StatusOK, "PostBackend() returned unexpected status code")
-		assert.Equal(t, actBody, m.Enc.Encode(b2), "PostBackend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, http.StatusOK, "PostBackend() returned unexpected status code")
+		assert.Equal(t, m.ResWriter.Body.String(), m.Enc.Encode(b2), "PostBackend() returned unexpected body")
 	}
 
 	backendHandlersTestCase{
@@ -374,13 +372,13 @@ func Test_PostBackend_WithInvalidJSON(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := PostBackend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
+		PostBackend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
 
 		// assert return values
 		expCode := http.StatusBadRequest
 		expBody := fmt.Sprintf(`"code":%d`, expCode)
-		assert.Equal(t, actCode, expCode, "PostBackend() returned unexpected status code")
-		assert.StringContains(t, actBody, expBody, "PostBackend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, expCode, "PostBackend() returned unexpected status code")
+		assert.StringContains(t, m.ResWriter.Body.String(), expBody, "PostBackend() returned unexpected body")
 	}
 
 	backendHandlersTestCase{
@@ -400,13 +398,13 @@ func Test_PostBackend_SvcNotFoundError(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := PostBackend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
+		PostBackend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
 
 		// assert return values
 		expCode := http.StatusNotFound
 		expBody := fmt.Sprintf(`"code":%d`, expCode)
-		assert.Equal(t, actCode, expCode, "PostBackend() returned unexpected status code")
-		assert.StringContains(t, actBody, expBody, "PostBackend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, expCode, "PostBackend() returned unexpected status code")
+		assert.StringContains(t, m.ResWriter.Body.String(), expBody, "PostBackend() returned unexpected body")
 	}
 
 	backendHandlersTestCase{
@@ -428,13 +426,13 @@ func Test_PostBackend_SvcBadDataError(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := PostBackend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
+		PostBackend(m.ResWriter, m.Request, m.Enc, m.Svc, m.Params)
 
 		// assert return values
 		expCode := http.StatusBadRequest
 		expBody := fmt.Sprintf(`"code":%d`, expCode)
-		assert.Equal(t, actCode, expCode, "PostBackend() returned unexpected status code")
-		assert.StringContains(t, actBody, expBody, "PostBackend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, expCode, "PostBackend() returned unexpected status code")
+		assert.StringContains(t, m.ResWriter.Body.String(), expBody, "PostBackend() returned unexpected body")
 	}
 
 	backendHandlersTestCase{
@@ -527,12 +525,12 @@ func Test_DeleteBackend(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := DeleteBackend(m.Enc, m.Svc, m.Params)
+		DeleteBackend(m.ResWriter, m.Enc, m.Svc, m.Params)
 
 		// assert return values
 		expCode := http.StatusNoContent
-		assert.Equal(t, actCode, expCode, "DeleteBackend() returned unexpected status code")
-		assert.Empty(t, actBody, "DeleteBackend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, expCode, "DeleteBackend() returned unexpected status code")
+		assert.Empty(t, m.ResWriter.Body.String(), "DeleteBackend() returned unexpected body")
 	}
 
 	backendHandlersTestCase{
@@ -550,13 +548,13 @@ func Test_DeleteBackend_SvcNotFoundError(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := DeleteBackend(m.Enc, m.Svc, m.Params)
+		DeleteBackend(m.ResWriter, m.Enc, m.Svc, m.Params)
 
 		// assert return values
 		expCode := http.StatusNotFound
 		expBody := fmt.Sprintf(`"code":%d`, expCode)
-		assert.Equal(t, actCode, expCode, "DeleteBackend() returned unexpected status code")
-		assert.StringContains(t, actBody, expBody, "DeleteBackend() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, expCode, "DeleteBackend() returned unexpected status code")
+		assert.StringContains(t, m.ResWriter.Body.String(), expBody, "DeleteBackend() returned unexpected body")
 	}
 
 	backendHandlersTestCase{
@@ -574,7 +572,7 @@ func Test_DeleteBackend_SvcDBError(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test, check for panic
-		b := func() { DeleteBackend(m.Enc, m.Svc, m.Params) }
+		b := func() { DeleteBackend(m.ResWriter, m.Enc, m.Svc, m.Params) }
 		assert.Panic(t, b, "DeleteBackend() failed to panic when expected")
 	}
 
@@ -593,7 +591,7 @@ func Test_DeleteBackend_SvcSyncError(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test, check for panic
-		b := func() { DeleteBackend(m.Enc, m.Svc, m.Params) }
+		b := func() { DeleteBackend(m.ResWriter, m.Enc, m.Svc, m.Params) }
 		assert.Panic(t, b, "DeleteBackend() failed to panic when expected")
 	}
 
@@ -612,7 +610,7 @@ func Test_DeleteBackend_SvcOutOfSyncError(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test, check for panic
-		b := func() { DeleteBackend(m.Enc, m.Svc, m.Params) }
+		b := func() { DeleteBackend(m.ResWriter, m.Enc, m.Svc, m.Params) }
 		assert.Panic(t, b, "DeleteBackend() failed to panic when expected")
 	}
 
@@ -637,13 +635,13 @@ func Test_GetBackendMembers(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := GetBackendMembers(m.Enc, m.Svc, m.Params)
+		GetBackendMembers(m.ResWriter, m.Enc, m.Svc, m.Params)
 
 		// assert return values
 		expCode := http.StatusOK
 		expBody := m.Enc.Encode(b.Members)
-		assert.Equal(t, expCode, actCode, "GetBackendMembers() returned unexpected status code")
-		assert.Equal(t, expBody, actBody, "GetBackendMembers() returned unexpected body")
+		assert.Equal(t, expCode, m.ResWriter.Code, "GetBackendMembers() returned unexpected status code")
+		assert.Equal(t, expBody, m.ResWriter.Body.String(), "GetBackendMembers() returned unexpected body")
 	}
 
 	backendHandlersTestCase{
@@ -660,13 +658,13 @@ func Test_GetBackendMembers_DoesNotExist(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test
-		actCode, actBody := GetBackendMembers(m.Enc, m.Svc, m.Params)
+		GetBackendMembers(m.ResWriter, m.Enc, m.Svc, m.Params)
 
 		// assert return values
 		expCode := http.StatusNotFound
 		expBody := fmt.Sprintf(`"code":%d`, expCode)
-		assert.Equal(t, actCode, expCode, "GetBackendMembers() returned unexpected status code")
-		assert.StringContains(t, actBody, expBody, "GetBackendMembers() returned unexpected body")
+		assert.Equal(t, m.ResWriter.Code, expCode, "GetBackendMembers() returned unexpected status code")
+		assert.StringContains(t, m.ResWriter.Body.String(), expBody, "GetBackendMembers() returned unexpected body")
 	}
 
 	backendHandlersTestCase{
@@ -684,7 +682,7 @@ func Test_GetBackendMembers_SvcError(t *testing.T) {
 
 	testAction := func(m *backendHandlersMocks) {
 		// execute function to test, check for panic
-		b := func() { GetBackendMembers(m.Enc, m.Svc, m.Params) }
+		b := func() { GetBackendMembers(m.ResWriter, m.Enc, m.Svc, m.Params) }
 		assert.Panic(t, b, "GetBackendMembers() failed to panic when expected")
 	}
 

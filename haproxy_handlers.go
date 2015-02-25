@@ -5,20 +5,24 @@ import (
 )
 
 // GetHAProxyConfig returns the contents of the haproxy.cfg file
-func GetHAProxyConfig(w http.ResponseWriter, enc Encoder, h HAProxy) (int, string) {
+func GetHAProxyConfig(w http.ResponseWriter, enc Encoder, h HAProxy) {
 	config, err := h.GetConfig()
 	if err != nil {
-		return http.StatusInternalServerError, enc.Encode(NewErrorResponse(http.StatusInternalServerError, "error loading haproxy.cfg file"))
+		util{}.writeResponse(w, http.StatusInternalServerError,
+			enc.Encode(NewErrorResponse(http.StatusInternalServerError, "error loading haproxy.cfg file")))
+		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
-	return http.StatusOK, config
+	util{}.writeResponse(w, http.StatusOK, config)
 }
 
 // ReloadHAProxy reloads the HAProxy service
-func ReloadHAProxy(w http.ResponseWriter, enc Encoder, h HAProxy) (int, string) {
+func ReloadHAProxy(w http.ResponseWriter, enc Encoder, h HAProxy) {
 	if err := h.ReloadConfig(); err != nil {
-		return http.StatusInternalServerError, enc.Encode(NewErrorResponse(http.StatusInternalServerError, "error reloading HAProxy"))
+		util{}.writeResponse(w, http.StatusInternalServerError,
+			enc.Encode(NewErrorResponse(http.StatusInternalServerError, "error reloading HAProxy")))
+		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
-	return http.StatusOK, "HAProxy successfully reloaded"
+	util{}.writeResponse(w, http.StatusOK, "HAProxy successfully reloaded")
 }
