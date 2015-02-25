@@ -13,7 +13,6 @@ Conduit is currently at version 0.0.1 and is considered Alpha software.  Though 
 
 * address remaining TODOs in the code
 * determine if any additional HAProxy configuration fields should be supported by the API
-* since Martini is not idiomatic Go, explore using other REST routing and/or handler packages
 * fill in any testing gaps
 * analyze unit test coverage and fill in any gaps
 * add integration tests that hit a running instance of the application
