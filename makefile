@@ -14,7 +14,7 @@ clean:
 	rm -rf ./_vendor/pkg
 
 install: build
-	@echo $(GOPATH); $(GO) install
+	$(GO) install
 
 run: build
 	./$(OUTFILE)
