@@ -3,9 +3,9 @@ GOFILE ?= conduit.go
 OUTFILE ?= conduit
 
 GOBIN := $(GOPATH)/bin
-GOPATH := $(CURDIR)/_vendor
+GOPATH := $(CURDIR)/_vendor:$(GOPATH)
 
-build: clean $(GOFILE)
+build: clean
 	$(GO) build -v -o $(OUTFILE) *.go
 
 clean:
@@ -27,7 +27,3 @@ cover: install
 
 cover-report: cover
 	$(GO) tool cover -html=./coverage.out
-
-dep-install:
-	$(GO) get
-
