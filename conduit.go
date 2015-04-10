@@ -229,23 +229,23 @@ func initRouter(server Server, config *Config, dbMgr DBManager, tmpl *template.T
 		GetBackends(w, enc, svc)
 	}).Methods("GET")
 
-	r.HandleFunc(`/backends/:name`, func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc(`/backends/{name}`, func(w http.ResponseWriter, r *http.Request) {
 		GetBackend(w, enc, svc, mux.Vars(r))
 	}).Methods("GET")
 
-	r.HandleFunc(`/backends/:name`, func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc(`/backends/{name}`, func(w http.ResponseWriter, r *http.Request) {
 		PutBackend(w, r, enc, svc, mux.Vars(r))
 	}).Methods("PUT")
 
-	r.HandleFunc(`/backends/:name`, func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc(`/backends/{name}`, func(w http.ResponseWriter, r *http.Request) {
 		PostBackend(w, r, enc, svc, mux.Vars(r))
 	}).Methods("POST")
 
-	r.HandleFunc(`/backends/:name`, func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc(`/backends/{name}`, func(w http.ResponseWriter, r *http.Request) {
 		DeleteBackend(w, enc, svc, mux.Vars(r))
 	}).Methods("DELETE")
 
-	r.HandleFunc(`/backends/:name/members`, func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc(`/backends/{name}/members`, func(w http.ResponseWriter, r *http.Request) {
 		GetBackendMembers(w, enc, svc, mux.Vars(r))
 	}).Methods("GET")
 
